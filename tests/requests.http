@@ -1,0 +1,14 @@
+###
+
+GET http://localhost:9999/banners.getById?id=2 HTTP/1.1
+###
+GET http://localhost:9999/banners.getAll HTTP/1.1
+
+###
+GET htt
+###
+GET http://localhost:9999/banners.save?id=1&content=text&link=https://lms.openjs.io&title=uraaaa&button=buton3 HTTP/1.1
+
+###
+
+GET http://localhost:9999/banners.get HTTP/1.1
