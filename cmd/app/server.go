@@ -5,11 +5,11 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/Eydzhpee08/http/pkg/banners"
 
 )
-
 
 //Server .. это наш логический сервер
 type Server struct {
@@ -29,6 +29,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 //Init .. мотод для инициализации сервера
 func (s *Server) Init() {
+	
 	//здес мы зеристрируем роутеры с определенными хендлерами
 	s.mux.HandleFunc("/banners.getAll", s.handleGetAllBanners)
 	s.mux.HandleFunc("/banners.getById", s.handleGetBannerByID)
@@ -113,23 +114,15 @@ func (s *Server) handleGetBannerByID(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSaveBanner(w http.ResponseWriter, r *http.Request) {
 
 	//получаем данные из параметра запроса
-	idP := r.URL.Query().Get("id")
-	title := r.URL.Query().Get("title")
-	content := r.URL.Query().Get("content")
-	button := r.URL.Query().Get("button")
-	link := r.URL.Query().Get("link")
+	idP := r.PostFormValue("id")
+	title := r.PostFormValue("title")
+	content := r.PostFormValue("content")
+	button := r.PostFormValue("button")
+	link := r.PostFormValue("link")
 
 	id, err := strconv.ParseInt(idP, 10, 64)
 	//если получили ошибку то отвечаем с ошибкой
 	if err != nil {
-		//печатаем ошибку
-		log.Print(err)
-		//вызываем фукцию для ответа с ошибкой
-		errorWriter(w, http.StatusBadRequest)
-		return
-	}
-	//Здесь опционалная проверка то что если все данные приходит пустыми то вернем ошибку
-	if title == "" && content == "" && button == "" && link == "" {
 		//печатаем ошибку
 		log.Print(err)
 		//вызываем фукцию для ответа с ошибкой
@@ -146,8 +139,27 @@ func (s *Server) handleSaveBanner(w http.ResponseWriter, r *http.Request) {
 		Link:    link,
 	}
 
+	file, header, err := r.FormFile("image")
+	if err == nil {
+		//Получаем расширеную файла например global.jpg берём только jpg а осталное будем генерироват  в сервисе
+		//здес разделяем имя файла по "."
+		var name = strings.Split(header.Filename, ".")
+		// берем последный элемент из массива тоест jpg и вставляем его в item.Image (в методе Save его будем менят)
+		item.Image = name[len(name)-1]
+
+	}
+
+	//Здесь опционалная проверка то что если все данные приходит пустыми то вернем ошибку
+	if title == "" && content == "" && button == "" && link == "" {
+		//печатаем ошибку
+		log.Print(err)
+		//вызываем фукцию для ответа с ошибкой
+		errorWriter(w, http.StatusBadRequest)
+		return
+	}
+
 	//вызываем метод Save тоест сохраняем или обновляем его
-	banner, err := s.bannerSvc.Save(r.Context(), item)
+	banner, err := s.bannerSvc.Save(r.Context(), item, file)
 
 	//если получили ошибку то отвечаем с ошибкой
 	if err != nil {
@@ -215,15 +227,6 @@ func (s *Server) handleRemoveByID(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, data)
 }
 
-/*
-+
-+
-+
-+
-+
-+
-+
-*/
 //это фукция для записывание ошибки в responseWriter или просто для ответа с ошиками
 func errorWriter(w http.ResponseWriter, httpSts int) {
 	http.Error(w, http.StatusText(httpSts), httpSts)
@@ -238,158 +241,3 @@ func respondJSON(w http.ResponseWriter, data []byte) {
 		log.Print(err)
 	}
 }
-// type Server struct {
-// 	nextById   int64
-// 	mux        *http.ServeMux
-// 	bannersSvc *banners.Service
-// 	bannersBan []*banners.Banner
-// }
-
-// func NewServer(mux *http.ServeMux, bannersSvc *banners.Service) *Server {
-// 	return &Server{mux: mux, bannersSvc: bannersSvc}
-// }
-
-// func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-// 	s.mux.ServeHTTP(writer, request)
-// }
-
-// func (s *Server) Init() {
-// 	s.mux.HandleFunc("/banners.getAll", s.handleGetAllBanners)
-// 	s.mux.HandleFunc("/banners.getById", s.handleGetBannerByID)
-// 	s.mux.HandleFunc("/banners.save", s.handleSaveBanner)
-// 	//s.mux.HandleFunc("/banners.removeBtId", s.handleRemoveByID)
-// 	s.mux.HandleFunc("/", s.notFound)
-
-// }
-
-// func (s *Server) handleGetAllBanners(w http.ResponseWriter, r *http.Request) {
-// 	// url := r.URL.Query()
-// 	// idParam := url.Get("id")
-// 	// id, err := strconv.ParseInt(idParam, 10, 64)
-
-// 	// if err != nil {
-// 	// 	log.Print(err)
-// 	// 	http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-// 	// }
-// 	item, err := s.bannersSvc.All(r.Context())
-// 	if err != nil {
-// 		log.Print(err)
-// 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-// 	}
-
-// 	data, err := json.Marshal(item)
-// 	if err != nil {
-// 		log.Print(err)
-// 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-// 	}
-
-// 	w.Header().Set("Content-Type", "application/json")
-// 	_, err = w.Write(data)
-// 	if err != nil {
-// 		log.Print(err)
-// 	}
-// }
-// func (s *Server) notFound(writer http.ResponseWriter, request *http.Request) {
-// 	writer.WriteHeader(http.StatusNotFound)
-// 	writer.Write([]byte("sorry, page not found"))
-// }
-// func (s *Server) handleGetBannerByID(w http.ResponseWriter, r *http.Request) {
-// 	url := r.URL.Query()
-// 	idParam := url.Get("id")
-// 	id, err := strconv.ParseInt(idParam, 10, 64)
-
-// 	if err != nil {
-// 		log.Print(err)
-// 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-// 	}
-// 	item, err := s.bannersSvc.ByID(r.Context(), id)
-// 	if err != nil {
-// 		log.Print(err)
-// 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-// 	}
-
-// 	data, err := json.Marshal(item)
-// 	if err != nil {
-// 		log.Print(err)
-// 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-// 	}
-
-// 	w.Header().Set("Content-Type", "application/json")
-// 	_, err = w.Write(data)
-// 	if err != nil {
-// 		log.Print(err)
-// 	}
-
-// }
-// func (s *Server) handleSaveBanner(w http.ResponseWriter, r *http.Request) {
-
-// 	//получаем данные из параметра запроса
-// 	idP := r.URL.Query().Get("id")
-// 	title := r.URL.Query().Get("title")
-// 	content := r.URL.Query().Get("content")
-// 	button := r.URL.Query().Get("button")
-// 	link := r.URL.Query().Get("link")
-
-// 	id, err := strconv.ParseInt(idP, 10, 64)
-// 	//если получили ошибку то отвечаем с ошибкой
-// 	if err != nil {
-// 		//печатаем ошибку
-// 		log.Print(err)
-// 		//вызываем фукцию для ответа с ошибкой
-// 		errorWriter(w, http.StatusBadRequest)
-// 		return
-// 	}
-// 	//Здесь опционалная проверка то что если все данные приходит пустыми то вернем ошибку
-// 	if title == "" && content == "" && button == "" && link == "" {
-// 		//печатаем ошибку
-// 		log.Print(err)
-// 		//вызываем фукцию для ответа с ошибкой
-// 		errorWriter(w, http.StatusBadRequest)
-// 		return
-// 	}
-
-// 	//создаём указател на структуру баннера
-// 	item := &banners.Banner{
-// 		ID:      id,
-// 		Title:   title,
-// 		Content: content,
-// 		Button:  button,
-// 		Link:    link,
-// 	}
-
-// 	//вызываем метод Save тоест сохраняем или обновляем его
-// 	banner, err := s.bannersSvc.Save(r.Context(), item)
-
-// 	//если получили ошибку то отвечаем с ошибкой
-// 	if err != nil {
-// 		//печатаем ошибку
-// 		log.Print(err)
-// 		//вызываем фукцию для ответа с ошибкой
-// 		errorWriter(w, http.StatusInternalServerError)
-// 		return
-// 	}
-
-// 	//преобразуем данные в JSON
-// 	data, err := json.Marshal(banner)
-
-// 	//если получили ошибку то отвечаем с ошибкой
-// 	if err != nil {
-// 		//печатаем ошибку
-// 		log.Print(err)
-// 		//вызываем фукцию для ответа с ошибкой
-// 		errorWriter(w, http.StatusInternalServerError)
-// 		return
-// 	}
-
-// 	w.Header().Set("Content-Type", "application/json")
-// 	_, err = w.Write(data)
-// 	if err != nil {
-// 		log.Print(err)
-// 	}
-
-// }
-
-// //это фукция для записывание ошибки в responseWriter или просто для ответа с ошиками
-// func errorWriter(w http.ResponseWriter, httpSts int) {
-// 	http.Error(w, http.StatusText(httpSts), httpSts)
-// }

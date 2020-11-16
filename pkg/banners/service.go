@@ -3,6 +3,9 @@ package banners
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io/ioutil"
+	"mime/multipart"
 	//"fmt"
 	//"io"
 	//"mime/multipart"
@@ -12,6 +15,7 @@ import (
 	"sync"
 
 )
+
 type Service struct {
 	mu    sync.RWMutex
 	items []*Banner
@@ -29,6 +33,7 @@ type Banner struct {
 	Content string
 	Button  string
 	Link    string
+	Image   string
 }
 
 //это стартовый ID но для каждого создание баннера его изменяем
@@ -58,7 +63,7 @@ func (s *Service) ByID(ctx context.Context, id int64) (*Banner, error) {
 }
 
 //Save ...
-func (s *Service) Save(ctx context.Context, item *Banner) (*Banner, error) {
+func (s *Service) Save(ctx context.Context, item *Banner, file multipart.File) (*Banner, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -68,6 +73,16 @@ func (s *Service) Save(ctx context.Context, item *Banner) (*Banner, error) {
 		sID++
 		//выставляем новый ID для баннера
 		item.ID = sID
+		//проверяем если файл пришел то сохроняем его под нужную имя
+		if item.Image != "" {
+			//генерируем Id сейчас Id только (Jpg)
+			item.Image = fmt.Sprint(item.ID) + "." + item.Image
+			// если произашло ошибка возврашаем ошибку
+			err := uploadFile(file, "./web/banners/"+item.Image)
+			if err != nil {
+				return nil, err
+			}
+		}
 		//добавляем его в слайс
 		s.items = append(s.items, item)
 		//вернем баннер и ошибку nil
@@ -77,6 +92,22 @@ func (s *Service) Save(ctx context.Context, item *Banner) (*Banner, error) {
 	for k, v := range s.items {
 		//если нашли то заменяем старый баннер с новым
 		if v.ID == item.ID {
+
+			//проверяем если файл пришел то сохроняем его под нужную имя
+			if item.Image != "" {
+				//генерируем Id сейчас Id только (Jpg)
+				item.Image = fmt.Sprint(item.ID) + "." + item.Image
+				// визиваем функцию для сохранение если произашло ошибка возврашаем ошибку
+				err := uploadFile(file, "./web/banners/"+item.Image)
+
+				if err != nil {
+					return nil, err
+				}
+				
+			} else {
+				item.Image = s.items[k].Image
+			}
+
 			//если нашли то в слайс под индексом найденного выставим новый элемент
 			s.items[k] = item
 			//вернем баннер и ошибку nil
@@ -105,4 +136,25 @@ func (s *Service) RemoveByID(ctx context.Context, id int64) (*Banner, error) {
 
 	//если не нашли то вернем ошибку что у нас такого банера не сушествует
 	return nil, errors.New("item not found")
+}
+
+//это функция сохраняет файл в сервере в заданной папке path и возврашает nil если все успешно или error если ест ошибка
+func uploadFile(file multipart.File, path string) error {
+	//прочитаем вес файл и получаем слайс из байтов
+	var data, err = ioutil.ReadAll(file)
+	//если не удалос прочитат то вернем ошибку
+	if err != nil {
+		return errors.New("not readble data")
+	}
+
+	//записываем файл в заданной папке с публичными правами
+	err = ioutil.WriteFile(path, data, 0666)
+
+	//если не удалось записыват файл то вернем ошибку
+	if err != nil {
+		return errors.New("not saved from folder ")
+	}
+
+	//если все успешно то вернем nil
+	return nil
 }

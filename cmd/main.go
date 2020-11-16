@@ -10,16 +10,23 @@ import (
 	"github.com/Eydzhpee08/http/pkg/banners"
 
 )
-func main() {
-	host := "0.0.0.0"
-	port := "9999"
 
+func main() {
+	// хост по которому обрашемся (роут )
+	host := "0.0.0.0"
+
+	// порт роута
+	port := "9999"
+	// визивае фнукцию запуска сервера
 	if err := execute(host, port); err != nil {
+		// если вернул ошибку остановис сервер
 		os.Exit(1)
 	}
 }
 
+// функция запск сервера
 func execute(host string, port string) (err error) {
+
 	mux := http.NewServeMux()
 	bannersSvc := banners.NewService()
 	server := app.NewServer(mux, bannersSvc)
